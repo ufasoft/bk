@@ -1,0 +1,386 @@
+;;; Copyright (c) 2022 Ufasoft  http://ufasoft.com  mailto:support@ufasoft.com,  Sergey Pavlov  mailto:dev@ufasoft.com
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; TETR game for BK-0010.01 computer (Vilnus BASIC ROM required)
+;;; less-than 512 byte implementation
+;;;
+;;; CREDITS:
+;;;	Stanislav Maslovski 	for 500-byte implementation with octal Score counter, which inspired this project
+;;;	Alexey Pajitnov 	the Tetris creator in 1984
+
+.TITLE	tetr
+
+.ENABLE	LC
+.ENABL	AMA		; address mode 37
+.LIST	ME		; Macro expansions
+
+.INCLUDE	/pdp11.inc/
+
+C$RROT	= 0		; random rotate
+C$EXT	= 0		; Extended features: speeding up on Score grow
+C$MU	= 1
+
+.IIF NDF C$MU, C$MU = C$EXT
+
+C.LE	= 10	; Left key
+C.RI	= 31	; Right key
+C.UP	= 32	; Up key
+C.DO	= 33	; Down key
+
+$BUFOUT	= 3022
+$ISGUN	= 140536
+$STAND	= 166552
+$ISTR	= 161610
+$RAN	= 175176
+
+$TMLIM	= 177706
+$TMCNT	= 177710
+$TMCSR	= 177712
+
+$IOCTL	= 177714
+$IOSND	= 100
+
+$SYREG	= 177716
+
+$KBCTL	= 177660
+$KBDAT	= 177662
+
+COLS = 10.
+ROWS = 21.
+
+STASIZ = <ROWS + 5> * 2	; State size
+
+
+
+;; Area to fill zeros on init
+;ZERBAS:
+
+;define as (SP) ; SCORE:	.WORD	0
+
+.ASECT
+
+.	= 376			; near Stack Top, used as loop counter in CPSTAT and mask to disable interrupts
+
+.IF NE C$MU
+
+
+.ENDC ; C$MU
+
+
+;; Main State
+ROW:	.WORD	0
+BLK:	.WORD	0
+SHIFT:	.WORD	0
+ZERO:	.WORD	0
+FIELD:	.BLKW	ROWS + 1
+
+
+.	= 774
+	.WORD	START			; start address
+	.WORD	IMGEND - START		; module length
+
+START:
+	EMT	14
+
+;; Init state
+	MOV	#24, $TMCSR		; Enable Timer on max frequency with Monitoring
+	MOV	#ROWS, R0		; R0: loop counter enough to fill zeros
+	MOV	#FIELD, R1
+	MOV	R1, SP
+1$:	CLR	 -(SP)			; SCORE = 0
+	MOV	#^B10000000000100, (R1)+
+	SOB	R0, 1$
+	MOV	#^B11111111111100, (R1)+
+
+.IF NE C$MU
+	MOV	#MU.ISR, @#14		; Tracing instruction handler for music poll points
+	MOV	#340, @#16		; disable interrupts in Music handler
+	PUSH	#340+FLAG.T, #NXBLK	; Enable tracing
+	RTI
+.IFF
+	;MTPS	#340			; disable interrupts
+	MTPS	SP			; disable interrupts
+	BR	NXBLK
+.ENDC ; C$MU
+
+.IF NE C$MU
+
+MU.FRQ	= 23437.		; Hz timer frequency
+MU.BT	= MU.FRQ/4.		; half-Beat duration(in timer ticks) 1/4 s
+
+PAUSE	= 200
+
+;; Define note length in mm
+.MACRO	.MUNOT	name, mm
+	name = mm / 50. - 1
+.ENDM
+
+.MUNOT	A2, 3136.
+.MUNOT	B2, 2794.
+.MUNOT	C3, 2637.
+.MUNOT	D3, 2349.
+.MUNOT	E3, 2093.
+.MUNOT	F3, 1975.
+.MUNOT	G3, 1760.
+.MUNOT	A3, 1568.
+.MUNOT	B3, 1397.
+.MUNOT	C4, 1318.
+.MUNOT	D4, 1174.
+.MUNOT	E4, 1046.
+.MUNOT	F4, 987.
+.MUNOT	G4, 880.
+.MUNOT	A4, 784.
+.MUNOT	B4, 698.
+
+;; Korobeiniki music theme
+MU.DAT:	.BYTE	E4+200, B3, C4, D4+200, C4, B3
+	.BYTE	A3+200, A3, C4, E4+200, D4, C4
+        .BYTE	B3+200, C4, D4+200, E4+200
+        .BYTE	C4+200, A3+200, A3+200
+        .BYTE	PAUSE, D4+200, F4, A4+200, G4, F4, E4+200
+        .BYTE	PAUSE, C4, E4+200, D4, C4, B3
+        .BYTE	B3, C4, D4+200, E4+200, C4+200
+        .BYTE	A3+200, A3+200
+
+        .BYTE	PAUSE, E4+200, C4+200, D4+200, B3+200, C4+200, A3+200, G3+200
+        .BYTE	PAUSE, B3, E4+200, C4+200, D4+200, B3+200, C4, E4, A4+200, G4, PAUSE, PAUSE
+
+        .BYTE	0				; end of notes
+        .EVEN
+
+
+MU.ISR:	CMP	$TMCNT, (PC)+
+MU.NXS:	.WORD	0		; next wave sample
+	BPL	MU.SKS		; too early
+
+	COM	(PC)+		; switch sound mask 0/1
+MU.MSK:	.WORD	0		; 0 or $IOSND. Mask to be written into $IOCTL
+	SXT	$IOCTL
+
+	PUSH	$TMCNT		; (SP): timer counter
+	CMP	(PC)+, (SP)
+MU.NXB:	.WORD	0		; next beat
+	BMI	MU.SKN
+
+	SUB	#MU.BT/2, (SP)	; make pause (Beat/4) between notes
+	MOV	(SP), MU.NXB
+	SUB	#MU.BT, MU.NXB
+
+MU.RNN:	MOVB	@(PC)+, @(PC)+	; read next Note
+MU.CUR:	.WORD	MU.DAT, MU.PER	; current position in MU.DAT
+4$:	BNE	1$
+	MOV	#MU.DAT, MU.CUR
+	BR	MU.RNN
+1$:     BPL	2$
+	SUB	#MU.BT, MU.NXB	; crotchet
+2$:	ASLB	MU.PER		; ignore high bit
+	BNE	3$
+	SUB	#MU.BT, (SP)	; make pause (Beat)
+	MOV	(SP), MU.NXB
+3$:	INC	MU.CUR
+MU.SKN:	SUB	(PC)+, (SP)	; (SP): next sample time
+MU.PER:	.WORD	0		; current tone period in timer ticks. High byte must be zero-initialized
+	POP	MU.NXS
+MU.SKS:	RTT
+
+.ENDC ; C$MU
+
+RDKEY:	MOVB	$KBDAT, R0	; with 'EMT 6' the program crashes sometime
+	SUB	#C.RI, R0	; 31
+	BHI	K32.33		; Keys Up or Down
+	SXT	R0
+	ASL	R0
+	INC	R0
+	SUB	R0, -(R3)	; TSHIFT -= R0
+	BR	APPKEY
+
+K32.33:	DEC	R0
+	BEQ	ROT
+DOWN:	CLRB	SM.FAL
+	BR	FALL
+
+;; R0==0 here
+ROT:	CMP	-(R3), -(R3)	; R3: #TBLK
+.IF NE C$RROT
+	MOV	(R3), R0	; R0 = TBLK
+	CALL	ROTATE
+	MOV	R0, (R3)	; TBLK = R0
+.IFF				; Rotate in (R3)
+1$:	MOV	(R3), R1
+2$:	ROL	R1
+	ROLB	(R3)
+	SWAB	(R3)
+	ADD	#4000, R0
+	BVS	1$		; branches on 16th iteration
+	BNE	2$
+.ENDC ; C$RROT
+APPKEY:	CALL	TREND
+	BNE	UPDATE
+
+APPLY:	MOV	#6, R0
+1$:	MOVB	TROW-1(R0), ROW-1(R0)	; copy changed Test State
+	SOB	R0, 1$
+SM.FAL:	BR	UPDATE		; Self-mofified instruction
+
+	PUSH	#FALL
+;; Copy Main State to Test area
+CPSTAT:
+	MOV	SP, R0		; use SP instead of #STASIZ because it big enough
+
+1$:	MOVB	ROW-1(R0), TROW-1(R0)
+	SOB	R0, 1$
+	RETURN
+
+
+PAINT:	MOV	#77020, R5	; Video memory
+	MOV     #TEND-2, R3
+1$:	MOV	#5, R1
+2$:	MOV	(R3), R2
+3$:	SXT	(R5)+
+	ASL	R2
+	BNE	3$
+	SUB	#200 + <COLS+4*2>, R5
+	SOB	R1, 2$
+	TST	-(R3)
+	BNE	1$
+
+	CALL	CPSTAT
+
+.IF NE C$MU
+	MOV	#2000, R5
+.IFF
+	ASR	R5	; reuse R5~=44000 value
+.ENDC
+
+.IIF NE C$EXT SUB	(SP), R5	; R5 -= SCORE
+
+;; Contract: R3: #TZERO
+INKEYL:	TSTB	$KBCTL
+	BMI	RDKEY
+AWAIT:	SOB	R5, INKEYL
+;; drop by one row
+FALL:	INC	TROW
+	CALL	TREND
+	BEQ	APPLY		; copy short changed state
+	DEC	TROW
+	BEQ	TZERO		; Game over. HALT
+	INC	(SP)		; ++SCORE
+	MOV	#FIELD, R1
+	CALL	REND
+
+NXBLK:	MOV	#ROW, R3
+	CLR	(R3)+				; ROW = 0
+	MOVB	#UPDATE-SM.FAL-2/2, SM.FAL
+
+RNDL:	MOV	$TMCNT, R2			; random number
+.IF NE C$RROT
+	MOV	R2, R1
+	BIC	#177761, R1
+	BEQ	RNDL
+	MOV	BLOCKS-2(R1), R0
+	SWAB	R2
+	BIC	#177774, R2
+	BEQ	2$
+1$:	CALL	ROTATE
+	SOB	R2, 1$
+2$:	MOV	R0, BLK
+.IFF
+	BIC	#177761, R2
+	BEQ	RNDL
+	MOV	BLOCKS-2(R2), (R3)+		; assign BLK
+.ENDC ; C$RROT
+
+	MOV	#COLS/2+2, (R3)+		; init SHIFT to middle position
+
+;; Update View
+UPDATE:
+
+;; Skip filled rows
+SKIPFR:	MOV	#FIELD + <ROWS*2>, R0
+	MOV	R0, R1
+1$:	TST	(R0)
+	BNE	2$
+	TST	(R0)+
+	ADD	#10., (SP)	; SCORE += 10.
+2$:	MOV	(R0), (R1)
+3$:	CMP	-(R0), #^B11111111111100
+	BEQ	3$
+	TST	-(R1)
+	BNE	1$
+
+;; Print Score
+PRSCOR:	MOV	(SP), R5	; R5: SCORE
+	CALL	$ISGUN  	; on return R1, $BUFOUT: ASCII, R2: length
+	MOV	R2, R1
+1$:	MOVB	$BUFOUT-1(R1), R0
+	EMT	22		; Print char in status line
+	SOB	R1, 1$
+
+	CALL	CPSTAT
+
+	PUSH	#PAINT
+;; Render block into state area in TFIELD
+;; Uses R2, R4, R5
+;; Returns ZF=1 on success
+TREND:	MOV	#TFIELD, R1
+;; Render block into state area in R1*2
+REND:	MOV	#TROW, R5
+	ADD	(R5), R1	; R1 += TROW * 2
+	ADD	(R5)+, R1
+	MOV	(R5)+, R0	; R0: TBLK
+1$:	MOV	R0, R4
+	BIC	#177760, R4
+	MOV	(R5), R2	; (R5): TSHIFT
+2$:	ASL	R4
+	SOB	R2, 2$
+	BIT	R4, (R1)
+	BNE	9$
+	BIS	R4, (R1)+
+	.REPT	4
+		ASR	R0
+	.ENDR
+	BNE	1$
+	; ZF==1 here
+9$:	RETURN
+
+
+
+
+.IF NE C$RROT
+;; Input: R0
+;; Output: R0
+ROTATE:	CLR	R2
+1$:	MOV	R0, R1
+2$:	ROL	R1
+	ROLB	R0
+	SWAB	R0
+	ADD	#4000, R2
+	BVS	1$
+	BNE	2$
+	RETURN
+.ENDC ; C$RROT
+
+
+
+BLOCKS:	.WORD	^B011001100000	; O
+	.WORD	^B000011110000	; I
+	.WORD	^B010001110000	; J
+	.WORD	^B001011100000	; L
+	.WORD	^B011011000000	; S
+	.WORD	^B001001110000	; T
+	.WORD	^B011000110000	; Z
+
+IMGEND:
+
+
+;; Test State area
+TROW:	.WORD	0
+TBLK:	.WORD	0
+TSHIFT:	.WORD	0
+TZERO:	.WORD	0		; reused as HALT instructions
+TFIELD:	.BLKW	ROWS + 1
+TEND:
+
+
+.END	START
