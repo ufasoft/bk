@@ -84,6 +84,7 @@ START:
 	EMT	14
 
 ;; Init state
+	CLR	$TMLIM			; Init limit register
 	MOV	#24, $TMCSR		; Enable Timer on max frequency with Monitoring
 	MOV	#ROWS, R0		; R0: loop counter enough to fill zeros
 	MOV	#FIELD, R1
