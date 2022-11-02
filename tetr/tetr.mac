@@ -97,7 +97,9 @@ START:
 .IF NE C$MU
 	MOV	#MU.ISR, @#14		; Tracing instruction handler for music poll points
 	MOV	#340, @#16		; disable interrupts in Music handler
-	PUSH	#340+FLAG.T, #NXBLK	; Enable tracing
+	PUSH	#340+FLAG.T		; Enable tracing
+	MOV	(SP), @#32		; Enable Music during EMT
+	PUSH	#NXBLK
 	RTI
 .IFF
 	;MTPS	#340			; disable interrupts
