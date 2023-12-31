@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Configuration>Release</Configuration>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Exe</OutputType>
+    <Optimize>True</Optimize>
+  </PropertyGroup>
+</Project>
