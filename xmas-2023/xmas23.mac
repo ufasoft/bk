@@ -1,0 +1,29 @@
+;; Written by Sergey Pavlov, 2023
+;; for Vintage Computing Christmas Challenge 2023 https://logiker.com/Vintage-Computing-Christmas-Challenge-2023
+;; Platform: BK-0010.01
+;; Placed in the PUBLIC DOMAIN
+
+.TITLE	Christmas Challenge 2023
+
+.ASECT
+.	= 1012
+	.WORD	START			; start address
+	.WORD	IMGEND - START		; module length
+;; R5: START
+START:	MOVB	PC, R1
+	MOV	#19., R2
+1$:	NEG	R2
+	ADD	(PC), R2	; R2 += 20.
+	EMT	24		; Set cursor
+	EMT	16		; Print char
+	BMI	1$
+	SUB	#6, R1
+	BHI	1$
+	ADD	#19., R1
+	MOVB	PC, R0		; R0: '*'
+	SOB	R2, 1$
+	RETURN
+;	HALT		; Opcode 000000, Initialized by Hardware
+IMGEND:
+
+.END	START
