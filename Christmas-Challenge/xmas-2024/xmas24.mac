@@ -1,0 +1,42 @@
+;; Written by Sergey Pavlov, 2024
+;; for Vintage Computing Christmas Challenge 2024 https://logiker.com/Vintage-Computing-Christmas-Challenge-2024
+;; Platform: BK-0010.01
+;; Placed in the PUBLIC DOMAIN
+
+.TITLE	Christmas Challenge 2024
+
+.ASECT
+.	= 1004
+	.WORD	START		; start address
+	.WORD	IMGEND - START	; module length
+;; R5: START
+START:	MOVB	R5, R1		; R1: 8.
+	EMT	24		; Set Cursor position
+	MOV	#STR, R1
+	EMT	20		; Print String
+	CALL	2$		; R1: #PLINE here
+	CALL	(PC)
+	MOVB	R5, R3		; R3: 8.
+1$:	JSR	R4, (R1)
+	.WORD	32. * 256. + '!
+	SOB	R3, 1$
+2$:	JSR	R4, (R1)
+	.WORD	'- * 256. + '+
+	RETURN
+
+STR:	.ASCIZ	"\O/"
+
+PLINE:	MOV	#10., R0	; LF
+	EMT	16		; Print Char
+	MOV	(R4)+, R0
+	EMT	16
+	JSR	R4, (PC)	; Repeat twice
+	SWAB	R0
+	MOVB	R5, R2		; R2: 8.
+2$:	EMT	16
+	SOB	R2, 2$
+	SWAB	R0
+	EMT	16
+	RTS	R4
+
+IMGEND:.END	START

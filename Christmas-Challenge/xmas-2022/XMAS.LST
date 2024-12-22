@@ -1,0 +1,56 @@
+Christmas Challenge 2022	MACRO V05.06R Wednesday 28-Dec-22 19:23  Page 1
+
+
+      1					;; Written by Sergey Pavlov, 2022
+      2					;; for Vintage Computing Christmas Challenge 2022 https://logiker.com/Vintage-Computing-Christmas-Challenge-2022
+      3					;; Platform: BK-0010.01
+      4					;; Placed in the PUBLIC DOMAIN
+      5
+      6					.TITLE	Christmas Challenge 2022
+      7
+      8	000000				.ASECT
+      9		001016 			.	= 1016
+     10	001016	001022 				.WORD	START			; start address
+     11	001020	000042 				.WORD	IMGEND - START		; module length
+     12	001022				START:
+     13	001022	012702 	000015 			MOV	#13., R2
+     14	001026	010203 			1$:     MOV	R2, R3
+     15	001030	010301 			2$:	MOV	R3, R1
+     16	001032	110704 				MOVB	PC, R4		; R4: x*4
+     17	001034	032121 				BIT	(R1)+, (R1)+	; R2 += 4
+     18	001036	110500 			3$:	MOVB    R5, R0          ; R0: 18.
+     19	001040	160200 				SUB     R2, R0
+     20	001042	010102 				MOV     R1, R2
+     21	001044	010001 				MOV     R0, R1
+     22	001046	104024 				EMT	24		; Set cursor
+     23	001050	110700 				MOVB	PC, R0		; R0: '*
+     24	001052	104016 				EMT	16		; Print char
+     25	001054	077410 				SOB	R4, 3$
+     26	001056	077314 				SOB	R3, 2$
+     27	001060	077216 				SOB	R2, 1$
+     28					;	MOVB	R0, R2
+     29	001062	104024 				EMT	24		; Set cursor
+     30					;	RETURN
+     31	001064				IMGEND:
+     32
+     33		001022 			.END	START
+Christmas Challenge 2022	MACRO V05.06R Wednesday 28-Dec-22 19:23  Page 1-1
+Symbol table
+
+IMGEND  001064   	START   001022
+
+. ABS.	001064    000	(RW,I,GBL,ABS,OVR)
+      	000000    001	(RW,I,LCL,REL,CON)
+Errors detected:  0
+
+*** Assembler statistics
+
+
+Work  file  reads: 0
+Work  file writes: 0
+Size of work file: 33 Words  ( 1 Pages)
+Size of core pool: 16640 Words  ( 65 Pages)
+Operating  system: RT-11
+
+Elapsed time: 00:00:00.00
+DK:XMAS,DK:XMAS.LST=DK:XMAS.MAC
