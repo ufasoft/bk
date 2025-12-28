@@ -1,0 +1,45 @@
+;; Written by Sergey Pavlov, 2025
+;; for Vintage Computing Christmas Challenge 2025 https://logiker.com/Vintage-Computing-Christmas-Challenge-2025
+;; Platform: BK-0010
+;; Placed in the PUBLIC DOMAIN
+
+.TITLE	Christmas Challenge 2025
+
+.ASECT
+.	= 1006
+	.WORD	START		; start address
+	.WORD	IMGEND - START	; module length
+;; R5: START
+START:				; R5 == 1012 here
+	MOVB	R5, R1		; R1 = 10.
+1$:	MOVB	R5, R2		; R2 = 10.
+2$:	MOV	PC, R3		; R3 is multiple of 8. Don't use MOVB due to 1801VM1 bug
+	ASLB	PATTRN-1(R1)
+	BCC	8$
+3$:	NEG	R1
+	ADD	(PC), R1	; R1 = 20. - R1
+	EMT	24		; Set Cursor position
+	BIT	R1, R2
+	BMI	7$		; Skip swapping on 2nd ant 6th iterations
+	XOR	R1, R2		; Swap R1, R2
+	XOR	R2, R1		;
+	XOR	R1, R2		;
+7$:	EMT	16		; Print Char
+	MOV	PC, R0		; R0 = '*'
+	SOB	R3, 3$
+8$:	SOB	R2, 2$
+	SOB	R1, 1$
+				; Fallback to HALT
+
+PATTRN:	.BYTE	^b10000000	; This converts to 0 (HALT opcode) after execution
+	.BYTE	^b10100000
+	.BYTE	^b11000101
+	.BYTE	^b10000110
+	.BYTE	^b10100100
+	.BYTE	^b11001000
+	.BYTE	^b10010000
+	.BYTE	^b10100000
+	.BYTE	^b11000000
+	.BYTE	^b10000000
+
+IMGEND:	.END	START
