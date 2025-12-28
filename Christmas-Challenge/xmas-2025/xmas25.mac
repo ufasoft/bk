@@ -20,7 +20,7 @@ START:				; R5 == 1012 here
 	ADD	(PC), R1	; R1 = 20. - R1
 	EMT	24		; Set Cursor position
 	BIT	R1, R2
-	BMI	7$		; Skip swapping on 2nd ant 6th iterations
+	BMI	7$		; Skip swapping on 2nd and 6th iterations
 	XOR	R1, R2		; Swap R1, R2
 	XOR	R2, R1		;
 	XOR	R1, R2		;
